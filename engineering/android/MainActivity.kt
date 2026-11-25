@@ -1,14 +1,25 @@
 package com.sofa.symbiosis
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.os.Bundle
 import android.graphics.Color
 import android.view.Gravity
 import android.widget.*
 import android.content.Intent
+import com.sofa.symbiosis.gateway.CapabilityGate
+import com.sofa.symbiosis.gateway.GatewayCapability
+import com.sofa.symbiosis.gateway.GatewayExecutionResult
+import com.sofa.symbiosis.gateway.GatewayOperation
+import com.sofa.symbiosis.gateway.GatewayRequest
+import com.sofa.symbiosis.gateway.LocalGateway
+import com.sofa.symbiosis.gateway.LocalGatewayExecutor
+import java.util.UUID
 
 class MainActivity : Activity() {
     private lateinit var store: JournalRepository
+    private lateinit var capabilityGate: CapabilityGate
+    private lateinit var gatewayExecutor: LocalGatewayExecutor
     private var coreState = 0
     private var ema = -1.0
     private var strategy = "EVENTS"
@@ -26,6 +37,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = LocalStoreJournalRepository(LocalStore(this))
+        capabilityGate = CapabilityGate()
+        gatewayExecutor = LocalGatewayExecutor(LocalGateway(capabilityGate), store)
         coreState = store.getValue("core_state", "0").toIntOrNull() ?: 0
         ema = store.getValue("ema", "-1.0").toDoubleOrNull() ?: -1.0
         strategy = store.getValue("strategy", "EVENTS")
@@ -78,27 +91,94 @@ class MainActivity : Activity() {
         content.addView(noteInput)
         content.addView(button("Сохранить в локальную память") {
             val value = noteInput.text.toString().trim()
-            if (value.isNotEmpty()) { store.saveNote(value); noteInput.setText(""); refreshJournal() }
+            if (value.isNotEmpty()) {
+                confirmSaveNote(value) {
+                    noteInput.setText("")
+                    refreshJournal()
+                }
+            } else {
+                Toast.makeText(this, "Сначала введи заметку", Toast.LENGTH_SHORT).show()
+            }
         })
         content.addView(text("Последние записи", 15, ink, true).apply { setPadding(0, 18, 0, 8) })
         journal = text("Пока нет записей.", 12, muted, false)
         content.addView(card(journal))
-        content.addView(button("Экспортировать журнал") { exportJournal() })
-        content.addView(text("Версия 0.1 • Интернет-доступ отсутствует • Фоновая работа не включена", 11, muted, false).apply { setPadding(0, 20, 0, 8) })
+        content.addView(button("Экспортировать журнал") { confirmExportJournal() })
+        content.addView(text("Версия 0.2 • Локальный шлюз • Сетевой доступ не включён", 11, muted, false).apply { setPadding(0, 20, 0, 8) })
         setContentView(root)
         refreshJournal()
     }
 
-    private fun refreshJournal() { journal.text = store.recent().ifEmpty { listOf("Пока нет записей.") }.joinToString("\n\n──────────\n\n") }
-
-    private fun exportJournal() {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "SOFA SYMBIOSIS — local journal")
-            putExtra(Intent.EXTRA_TEXT, store.exportText())
-        }
-        startActivity(Intent.createChooser(intent, "Поделиться / сохранить журнал"))
+    private fun confirmSaveNote(value: String, onSaved: () -> Unit) {
+        AlertDialog.Builder(this)
+            .setTitle("Разрешить сохранение?")
+            .setMessage("Следующая заметка будет записана в локальную память SOFA:\n\n$value")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Разрешить") { _, _ ->
+                val request = GatewayRequest(UUID.randomUUID().toString(), GatewayOperation.SAVE_NOTE)
+                executeWithTemporaryGrant(GatewayCapability.WRITE_LOCAL_NOTE, request, value) { result ->
+                    when (result) {
+                        is GatewayExecutionResult.NoteSaved -> {
+                            Toast.makeText(this, "Записано в локальную память", Toast.LENGTH_SHORT).show()
+                            onSaved()
+                        }
+                        else -> showGatewayResult(result)
+                    }
+                }
+            }
+            .show()
     }
+
+    private fun confirmExportJournal() {
+        AlertDialog.Builder(this)
+            .setTitle("Подтвердить экспорт?")
+            .setMessage("Журнал будет передан в системное меню «Поделиться». Выбранное тобой приложение сможет получить его содержимое.")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Продолжить") { _, _ ->
+                val request = GatewayRequest(UUID.randomUUID().toString(), GatewayOperation.EXPORT_JOURNAL)
+                executeWithTemporaryGrant(GatewayCapability.EXPORT_LOCAL_JOURNAL, request) { result ->
+                    if (result is GatewayExecutionResult.JournalExport) {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "SOFA SYMBIOSIS — local journal")
+                            putExtra(Intent.EXTRA_TEXT, result.text)
+                        }
+                        startActivity(Intent.createChooser(intent, "Поделиться / сохранить журнал"))
+                    } else {
+                        showGatewayResult(result)
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun executeWithTemporaryGrant(
+        capability: GatewayCapability,
+        request: GatewayRequest,
+        note: String? = null,
+        onResult: (GatewayExecutionResult) -> Unit
+    ) {
+        capabilityGate.grant(capability)
+        val result = try {
+            gatewayExecutor.execute(request, note)
+        } catch (_: Exception) {
+            GatewayExecutionResult.Denied(request.requestId, "Local operation failed")
+        } finally {
+            capabilityGate.revoke(capability)
+        }
+        onResult(result)
+    }
+
+    private fun showGatewayResult(result: GatewayExecutionResult) {
+        val message = when (result) {
+            is GatewayExecutionResult.Denied -> "Операция отклонена: ${result.reason}"
+            is GatewayExecutionResult.Invalid -> "Некорректный запрос: ${result.reason}"
+            else -> "Операция не выполнена"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun refreshJournal() { journal.text = store.recent().ifEmpty { listOf("Пока нет записей.") }.joinToString("\n\n──────────\n\n") }
 
     private fun text(value: String, size: Int, color: Int, bold: Boolean) = TextView(this).apply {
         text = value; textSize = size.toFloat(); setTextColor(color)
