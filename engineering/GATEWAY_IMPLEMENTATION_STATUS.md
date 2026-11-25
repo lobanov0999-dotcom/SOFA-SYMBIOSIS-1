@@ -28,3 +28,11 @@
 - Replays, mismatched digests, missing digests, expired approvals, and revoked approvals are rejected.
 - This is not yet connected to an Android notification/dialog. No core update is executed by LocalGateway; it remains an authorization-only router.
 - Added JVM tests for expiry, scope binding, one-time use, revocation, and gateway enforcement.
+
+## Local journal repository integration
+- Added a `JournalRepository` interface and `LocalStoreJournalRepository` adapter.
+- MainActivity now depends on the repository contract while the adapter delegates to the existing `LocalStore`.
+- Existing SQLite database name, schema version, tables, SQL, key names, and record formats are unchanged.
+- The CI workflow overlays the adapter and updated activity into the extracted Android source before compilation.
+- This is an abstraction boundary only: no database migration, encryption claim, backup-policy change, or background access was introduced.
+- Physical-device upgrade/data-retention testing is still required before treating persistence integration as production-ready.
