@@ -43,3 +43,11 @@ jobs:
           name: SOFA-SYMBIOSIS-1-APK
           path: SOFA_SYMBIOSIS_1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Upload extracted source for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOFA-SYMBIOSIS-1-SOURCE
+          path: SOFA_SYMBIOSIS_1/
+          if-no-files-found: error
+          retention-days: 7
