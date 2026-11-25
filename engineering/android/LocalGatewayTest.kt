@@ -36,6 +36,26 @@ class LocalGatewayTest {
         assertEquals(GatewayResult.Denied("core-2", "Fresh owner approval required"), gateway.authorize(request))
         assertEquals(true, approvals.approve("core-2", "sha256:proposal"))
         assertEquals(GatewayResult.Allowed("core-2"), gateway.authorize(request))
-        assertEquals(GatewayResult.Denied("core-2", "Fresh owner approval required"), gateway.authorize(request))
+        assertEquals(GatewayResult.Denied("core-2", "Request already processed"), gateway.authorize(request))
+    }
+
+    @Test fun successfulRequestIdCannotBeReplayedAcrossOperations() {
+        val gateway = LocalGateway(CapabilityGate(setOf(
+            GatewayCapability.READ_LOCAL_STATUS,
+            GatewayCapability.WRITE_LOCAL_NOTE
+        )))
+        assertEquals(GatewayResult.Allowed("same-id"),
+            gateway.authorize(GatewayRequest("same-id", GatewayOperation.READ_STATUS)))
+        assertEquals(GatewayResult.Denied("same-id", "Request already processed"),
+            gateway.authorize(GatewayRequest("same-id", GatewayOperation.SAVE_NOTE)))
+    }
+
+    @Test fun deniedRequestDoesNotConsumeItsId() {
+        val gate = CapabilityGate()
+        val gateway = LocalGateway(gate)
+        val request = GatewayRequest("retry-after-consent", GatewayOperation.SAVE_NOTE)
+        assertEquals(GatewayResult.Denied("retry-after-consent", "Capability not granted"), gateway.authorize(request))
+        gate.grant(GatewayCapability.WRITE_LOCAL_NOTE)
+        assertEquals(GatewayResult.Allowed("retry-after-consent"), gateway.authorize(request))
     }
 }
