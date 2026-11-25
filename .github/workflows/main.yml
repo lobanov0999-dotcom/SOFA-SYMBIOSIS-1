@@ -37,6 +37,10 @@ jobs:
         run: |
           APP="SOFA_SYMBIOSIS_1/app"
           PKG="$APP/src/main/java/com/sofa/symbiosis/gateway"
+          APP_PKG="$APP/src/main/java/com/sofa/symbiosis"
+          mkdir -p "$APP_PKG"
+          cp engineering/android/JournalRepository.kt "$APP_PKG/JournalRepository.kt"
+          cp engineering/android/MainActivity.kt "$APP_PKG/MainActivity.kt"
           TEST="$APP/src/test/java/com/sofa/symbiosis/gateway"
           mkdir -p "$PKG" "$TEST"
           cp engineering/android/CapabilityGate.kt "$PKG/CapabilityGate.kt"
