@@ -37,7 +37,7 @@ jobs:
         working-directory: SOFA_SYMBIOSIS_1
         run: |
           sed -i "/id 'com.android.application' version/a\\    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false" build.gradle
-          sed -i "/id 'com.android.application'/a\\    id 'org.jetbrains.kotlin.android'" app/build.gradle
+          sed -i "s/plugins { id 'com.android.application' }/plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }/" app/build.gradle
 
       - name: Build APK
         working-directory: SOFA_SYMBIOSIS_1
