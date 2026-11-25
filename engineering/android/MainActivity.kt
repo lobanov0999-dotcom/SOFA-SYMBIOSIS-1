@@ -56,7 +56,7 @@ class MainActivity : Activity() {
         content.addView(text("SYMBIOSIS 1  ·  LOCAL CORE", 13, accent, true))
         content.addView(text("Автономный прототип • данные остаются на устройстве", 12, muted, false).apply { setPadding(0, 5, 0, 18) })
 
-        status = text("CORE-10: $coreState    Фаза: 3    Стратегия: $strategy", 16, ink, true)
+        status = text("CORE-10: $coreState    Фаза: —    Стратегия: $strategy", 16, ink, true)
         content.addView(card(status))
         content.addView(text("Тестовая плотность активных процессов", 14, ink, true).apply { setPadding(0, 18, 0, 4) })
         densityLabel = text("Активно: 20%", 13, muted, false)
