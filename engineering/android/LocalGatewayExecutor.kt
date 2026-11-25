@@ -53,10 +53,12 @@ class LocalGatewayExecutor(
             strategy = journal.getValue("strategy", "EVENTS")
         )
         GatewayOperation.SAVE_NOTE -> {
-            val value = normalizedNote
-                ?: return GatewayExecutionResult.Invalid("note is required")
-            journal.saveNote(value)
-            GatewayExecutionResult.NoteSaved(value.length)
+            if (normalizedNote == null) {
+                GatewayExecutionResult.Invalid("note is required")
+            } else {
+                journal.saveNote(normalizedNote)
+                GatewayExecutionResult.NoteSaved(normalizedNote.length)
+            }
         }
         GatewayOperation.EXPORT_JOURNAL ->
             GatewayExecutionResult.JournalExport(journal.exportText())
