@@ -1,0 +1,30 @@
+name: Nine-state experiment tests
+
+on:
+  push:
+    branches:
+      - experiment/nine-state-cycle
+    paths:
+      - "experiments/nine_state_cycle/**"
+      - ".github/workflows/nine-state-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run experiment unit tests
+        run: python -m unittest discover -s experiments/nine_state_cycle -p "test_*.py" -v
+      - name: Run arithmetic accounting
+        run: python experiments/nine_state_cycle/arithmetic_experiment.py
+      - name: Run architecture comparison
+        run: python experiments/nine_state_cycle/architecture_comparison.py
