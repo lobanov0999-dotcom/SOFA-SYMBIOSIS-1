@@ -31,3 +31,22 @@ The user requires the phone to be notified and explicit approval obtained before
 3. Add database migration tests before changing the schema.
 4. Add a transparent, user-controlled notification/approval mechanism before any future core update.
 5. Only then plan a local model/runtime and carefully scoped Android capabilities.
+
+## Follow-up CI log review — 2026-11-25
+
+Inspected the full GitHub Actions job log for run 11 (job 139048037305).
+
+Confirmed:
+- The workflow invokes `gradle --no-daemon clean testDebugUnitTest assembleDebug`.
+- Android compilation and APK packaging completed successfully; the APK ZIP integrity check passed and the build reported three DEX files.
+- The task `app:testDebugUnitTest` reported `NO-SOURCE`; Kotlin unit-test compilation also reported `NO-SOURCE`. Therefore run 11 did not execute any Android unit tests. The overall green build must not be described as algorithm tests passing.
+- The workflow applies Kotlin plugin / Java 17 compatibility normalization in the runner before building. Those edits are transient runner changes, not necessarily changes in the archived source ZIP.
+- The workflow then packages the original project directory into the source artifact. This packaging order should be reviewed so the downloadable source reproducibly contains the same build configuration and test sources that CI actually uses.
+
+Next safe engineering actions:
+1. Inspect the workflow definition and its source archive provenance.
+2. Add durable unit-test sources and the required test dependency to the maintained project source, without modifying `CoreEngine.kt`.
+3. Make CI fail if the expected test task has no test sources or zero tests executed.
+4. Rebuild from the working branch and inspect the test report before claiming tests passed.
+
+No application core, algorithm, manifest, or backup behavior was changed during this log review.
