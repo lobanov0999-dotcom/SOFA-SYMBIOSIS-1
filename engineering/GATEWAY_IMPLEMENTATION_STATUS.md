@@ -20,3 +20,11 @@
 3. Add database migration tests before any schema change.
 4. Add Android Keystore operations only for concrete device-held secrets.
 5. Define and approve a cloud protocol and data-sharing policy before adding INTERNET permission.
+
+## Core-change approval hardening (new, policy primitive only)
+- Added a short-lived, single-use approval gate bound to one request ID and one exact change digest.
+- A core-update request now requires both the MODIFY_CORE capability and a matching unexpired approval.
+- Approval records are in-memory only; they expire after 60 seconds by default and are capped at five minutes.
+- Replays, mismatched digests, missing digests, expired approvals, and revoked approvals are rejected.
+- This is not yet connected to an Android notification/dialog. No core update is executed by LocalGateway; it remains an authorization-only router.
+- Added JVM tests for expiry, scope binding, one-time use, revocation, and gateway enforcement.
