@@ -33,9 +33,19 @@ jobs:
           test -f SOFA_SYMBIOSIS_1/settings.gradle
           test -f SOFA_SYMBIOSIS_1/app/build.gradle
 
+      - name: Enable Kotlin Android compilation
+        working-directory: SOFA_SYMBIOSIS_1
+        run: |
+          sed -i "/id 'com.android.application' version/a\\    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false" build.gradle
+          sed -i "/id 'com.android.application'/a\\    id 'org.jetbrains.kotlin.android'" app/build.gradle
+
       - name: Build APK
         working-directory: SOFA_SYMBIOSIS_1
-        run: gradle --no-daemon assembleDebug
+        run: |
+          gradle --no-daemon clean assembleDebug
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -p "$APK" classes.dex | strings | grep -q 'MainActivity'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
