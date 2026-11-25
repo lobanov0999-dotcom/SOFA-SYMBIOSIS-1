@@ -1,38 +1,34 @@
 # Nine-state cycle — experimental specification
 
-Status: hypothesis / isolated experiment. This does not modify the SOFA SYMBIOSIS core.
+Status: isolated hypothesis. This experiment does not modify the SOFA SYMBIOSIS Android app or core.
 
-## Working interpretation from the author's explanation
+## Agreed interpretation
 
-- The working cycle has nine states: 0, 1, 2, 3, 4, 5, 6, 7, 8.
-- The written token `10` is a single logical marker: it closes the current cycle and signals the start of a new one.
-- The two glyphs `1` and `0` are treated as one token in this notation, not as the ordinary decimal number ten and not automatically as two independent states.
-- After the marker, the next working state is 0.
+- The working cycle has nine values: 0 through 8.
+- After value 8, the machine emits the atomic control token [10] and returns to 0.
+- [10] is not an arithmetic digit and is not one of the nine working values.
+- The machine does not store a cycle number. It stores only its current value (0..8).
+- The marker is an event emitted at rollover; the next working state is 0.
 
 Illustrative stream:
 
 `0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → [10] → 0 → 1 → ...`
 
-## Minimal transition rule
+## Transition rule
 
-For a working state x in {0,...,8}:
+For a working value x in {0,...,8}:
 
-- if x < 8, next(x) = x + 1;
-- if x = 8, emit the cycle marker [10] and begin the next cycle at 0.
+- if x < 8, next(x) = x + 1 and no marker is emitted;
+- if x = 8, next(x) = 0 and the control marker [10] is emitted.
 
-The marker is a notation/control token. It is not silently treated as an ordinary arithmetic value.
+## Arithmetic is a separate layer
+
+The arithmetic prototype uses ordinary positional base-9 digits 0..8. In that arithmetic context, `10₉` is the usual representation of decimal nine. That notation must not be confused with the atomic rollover control token [10] defined above.
 
 ## What this specification does NOT claim
 
-This notation alone does not prove fewer operations, lower memory use, faster computation, or lower energy use. A conventional binary machine can encode nine distinct states using four bits, with seven bit patterns unused. A physical nine-level device would need reliable separation of nine states and must be evaluated for noise, switching cost, and read/write complexity.
-
-## Questions to settle before integrating anywhere
-
-1. Is the marker [10] emitted after every sequence 0..8, or is it also a state that participates in arithmetic?
-2. Does the system need to remember the cycle number, or is this a repeating modulo-nine process?
-3. What do the nine values mean in a real computation: quantities, symbols, phases, or something else?
-4. Which operation should be tested first (addition, comparison, encoding, or a task from the SOFA prototype)?
+This notation alone does not prove fewer operations, lower memory use, faster computation, or lower energy use. A conventional binary machine can encode nine distinct states using four bits, with seven bit patterns unused. A physical nine-level device would need reliable separation of nine states and must be evaluated for noise, switching cost, read/write complexity, and peripheral circuitry.
 
 ## Safety boundary
 
-This is an isolated mathematical experiment. No Android app code, CORE-10, model, or existing kernel algorithm is changed by this document. Integration requires explicit approval.
+This is an isolated software experiment. No Android app code, CORE-10, model, or existing kernel algorithm is changed. Integration requires explicit approval.
