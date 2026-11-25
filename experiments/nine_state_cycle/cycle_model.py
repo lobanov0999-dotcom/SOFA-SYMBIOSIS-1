@@ -1,7 +1,8 @@
 """Minimal simulator for the nine-state cycle hypothesis.
 
-The string "10" is an atomic logical marker here, not the decimal integer 10.
-This is an isolated experiment; it is not wired into the Android app or core.
+The token [10] is an atomic control marker emitted on 8 -> 0.
+The machine stores only its current working value (0..8); it does not
+store a cycle number. This experiment is isolated from the Android app/core.
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -9,8 +10,7 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class CycleState:
-    cycle: int
-    value: int  # working values are 0..8
+    value: int
 
 
 @dataclass(frozen=True)
@@ -20,12 +20,12 @@ class Step:
 
 
 def advance(state: CycleState) -> Step:
-    """Advance one working state; emit the atomic '10' marker on rollover."""
-    if not 0 <= state.value <= 8:
-        raise ValueError("working value must be in range 0..8")
+    """Advance one state and emit [10] only when wrapping 8 -> 0."""
+    if not isinstance(state.value, int) or not 0 <= state.value <= 8:
+        raise ValueError("working value must be an integer in range 0..8")
     if state.value < 8:
-        return Step(CycleState(state.cycle, state.value + 1))
-    return Step(CycleState(state.cycle + 1, 0), marker="10")
+        return Step(CycleState(state.value + 1))
+    return Step(CycleState(0), marker="10")
 
 
 def run(start: CycleState, transitions: int) -> list[Step]:
@@ -41,8 +41,8 @@ def run(start: CycleState, transitions: int) -> list[Step]:
 
 
 if __name__ == "__main__":
-    state = CycleState(cycle=0, value=0)
+    state = CycleState(0)
     for item in run(state, 18):
         if item.marker is not None:
             print(f"[{item.marker}]")
-        print(f"cycle={item.state.cycle}, value={item.state.value}")
+        print(f"value={item.state.value}")
