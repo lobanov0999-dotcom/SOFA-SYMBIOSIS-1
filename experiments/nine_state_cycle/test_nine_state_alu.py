@@ -62,5 +62,26 @@ class NineStateAluTests(unittest.TestCase):
         self.assertEqual(format_number((0, 0, 0)), "0")
 
 
+    def test_all_single_digit_multiplications(self):
+        from nine_state_alu import multiply_digit
+        for a in range(9):
+            for b in range(9):
+                digit, carry = multiply_digit(a, b)
+                self.assertEqual(digit + 9 * carry, a * b)
+
+    def test_multi_digit_multiplication(self):
+        from nine_state_alu import multiply_number
+        cases = [
+            ((8,), (8,)),
+            ((8, 8), (8,)),
+            ((8, 8), (8, 8)),
+            ((2, 5, 1), (7, 3)),
+            ((0,), (8, 8, 8)),
+        ]
+        for a, b in cases:
+            result = multiply_number(a, b)
+            self.assertEqual(value(result), value(a) * value(b))
+
+
 if __name__ == "__main__":
     unittest.main()
