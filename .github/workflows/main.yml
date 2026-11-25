@@ -32,8 +32,46 @@ jobs:
           unzip -q SOFA_SYMBIOSIS_1_source.zip -d .
           test -f SOFA_SYMBIOSIS_1/settings.gradle
           test -f SOFA_SYMBIOSIS_1/app/build.gradle
-          grep -q "org.jetbrains.kotlin.android" SOFA_SYMBIOSIS_1/build.gradle
-          grep -q "org.jetbrains.kotlin.android" SOFA_SYMBIOSIS_1/app/build.gradle
+
+      - name: Normalize Kotlin and Java build settings
+        working-directory: SOFA_SYMBIOSIS_1
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("build.gradle")
+          text = root.read_text()
+          if "org.jetbrains.kotlin.android" not in text:
+              pattern = r"(id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]\s+apply\s+false)"
+              text, count = re.subn(pattern, r"\1\n    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false", text, count=1)
+              if count != 1:
+                  raise SystemExit("Could not safely add Kotlin plugin to root build.gradle")
+              root.write_text(text)
+
+          app = Path("app/build.gradle")
+          text = app.read_text()
+          if "org.jetbrains.kotlin.android" not in text:
+              match = re.search(r"plugins\s*\{([^}]*)\}", text, re.S)
+              if not match:
+                  raise SystemExit("Could not find app plugins block")
+              body = match.group(1).rstrip()
+              text = text[:match.start(1)] + body + "\n    id 'org.jetbrains.kotlin.android'" + text[match.end(1):]
+          if "sourceCompatibility JavaVersion.VERSION_17" not in text:
+              text += """
+
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          """
+          app.write_text(text)
+          PY
 
       - name: Run unit tests and build APK
         working-directory: SOFA_SYMBIOSIS_1
