@@ -45,9 +45,11 @@ jobs:
           mkdir -p "$PKG" "$TEST"
           cp engineering/android/CapabilityGate.kt "$PKG/CapabilityGate.kt"
           cp engineering/android/LocalGateway.kt "$PKG/LocalGateway.kt"
+          cp engineering/android/LocalGatewayExecutor.kt "$PKG/LocalGatewayExecutor.kt"
           cp engineering/android/CoreChangeApprovalGate.kt "$PKG/CoreChangeApprovalGate.kt"
           cp engineering/android/CapabilityGateTest.kt "$TEST/CapabilityGateTest.kt"
           cp engineering/android/LocalGatewayTest.kt "$TEST/LocalGatewayTest.kt"
+          cp engineering/android/LocalGatewayExecutorTest.kt "$TEST/LocalGatewayExecutorTest.kt"
           cp engineering/android/CoreChangeApprovalGateTest.kt "$TEST/CoreChangeApprovalGateTest.kt"
           python3 - <<'PY'
           from pathlib import Path
@@ -110,8 +112,8 @@ jobs:
           executed = sum(int(ET.parse(p).getroot().attrib.get("tests", "0")) for p in reports)
           failures = sum(int(ET.parse(p).getroot().attrib.get("failures", "0")) + int(ET.parse(p).getroot().attrib.get("errors", "0")) for p in reports)
           print(f"Unit tests executed: {executed}; failures/errors: {failures}")
-          if executed < 11 or failures:
-              raise SystemExit("Expected all 11 gateway unit tests to pass")
+          if executed < 16 or failures:
+              raise SystemExit("Expected all 16 gateway unit tests to pass")
           PY
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
