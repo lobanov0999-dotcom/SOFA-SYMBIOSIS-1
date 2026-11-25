@@ -10,7 +10,9 @@ enum class GatewayOperation(val capability: GatewayCapability) {
 
 data class GatewayRequest(
     val requestId: String,
-    val operation: GatewayOperation
+    val operation: GatewayOperation,
+    /** Stable digest of the exact proposed change; required for core updates. */
+    val changeDigest: String? = null
 )
 
 sealed class GatewayResult {
@@ -20,14 +22,26 @@ sealed class GatewayResult {
 }
 
 /**
- * Policy-only request router. It deliberately does not execute operations;
- * Android UI/repository adapters must be wired separately after approval UX exists.
+ * Policy-only request router. It deliberately does not execute operations.
+ * Core updates require both the MODIFY_CORE capability and a fresh,
+ * single-use approval bound to the exact change digest.
  */
-class LocalGateway(private val gate: CapabilityGate) {
+class LocalGateway(
+    private val gate: CapabilityGate,
+    private val coreApprovals: CoreChangeApprovalGate = CoreChangeApprovalGate()
+) {
     fun authorize(request: GatewayRequest): GatewayResult {
         if (request.requestId.isBlank()) return GatewayResult.Invalid("requestId is required")
+        if (request.operation == GatewayOperation.APPLY_CORE_UPDATE &&
+            request.changeDigest.isNullOrBlank()) {
+            return GatewayResult.Invalid("changeDigest is required for core updates")
+        }
         if (!gate.isAllowed(request.operation.capability)) {
             return GatewayResult.Denied(request.requestId, "Capability not granted")
+        }
+        if (request.operation == GatewayOperation.APPLY_CORE_UPDATE &&
+            !coreApprovals.consume(request.requestId, request.changeDigest!!)) {
+            return GatewayResult.Denied(request.requestId, "Fresh owner approval required")
         }
         return GatewayResult.Allowed(request.requestId)
     }
