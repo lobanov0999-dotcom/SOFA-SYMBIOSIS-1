@@ -111,3 +111,54 @@ def _normalized(digits: tuple[int, ...]) -> tuple[int, ...]:
 def format_number(digits: tuple[int, ...]) -> str:
     """Format a little-endian digit tuple in conventional display order."""
     return "".join(str(x) for x in reversed(_normalized(digits)))
+
+
+
+# Each cell is (result_digit, carry_out), where carry_out is 0..7.
+MULTIPLY_TABLE = tuple(
+    tuple(((a * b) % 9, (a * b) // 9) for b in DIGITS)
+    for a in DIGITS
+)
+
+
+def multiply_digit(a: int, b: int) -> tuple[int, int]:
+    """Multiply two base-9 digits; return (low digit, carry to next place)."""
+    _digit(a)
+    _digit(b)
+    return MULTIPLY_TABLE[a][b]
+
+
+def multiply_number(a_digits: tuple[int, ...], b_digits: tuple[int, ...]) -> tuple[int, ...]:
+    """Grade-school multi-digit multiplication using nine-state digit products.
+
+    Inputs and output are little-endian tuples. Each row of partial products
+    can be computed independently; rows are then accumulated with add_number.
+    """
+    a = _normalized(a_digits)
+    b = _normalized(b_digits)
+    result = (0,)
+    for shift, b_digit in enumerate(b):
+        row = [0] * shift
+        carry = 0
+        for a_digit in a:
+            low, product_carry = multiply_digit(a_digit, b_digit)
+            total = low + carry
+            row.append(total % 9)
+            carry = product_carry + total // 9
+        while carry:
+            row.append(carry % 9)
+            carry //= 9
+        result = add_number(result, tuple(row))
+    return _normalized(result)
+
+
+def multiplication_work_estimate(a_digits: tuple[int, ...], b_digits: tuple[int, ...]) -> dict:
+    """Count abstract digit products and independent partial-product rows."""
+    a = _normalized(a_digits)
+    b = _normalized(b_digits)
+    return {
+        "digit_products": len(a) * len(b),
+        "independent_partial_product_rows": len(b),
+        "serial_row_accumulations": len(b),
+        "max_parallel_digit_products_per_row": len(a),
+    }
