@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android Debug APK
+    name: Test and build Android Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -32,46 +32,44 @@ jobs:
           unzip -q SOFA_SYMBIOSIS_1_source.zip -d .
           test -f SOFA_SYMBIOSIS_1/settings.gradle
           test -f SOFA_SYMBIOSIS_1/app/build.gradle
+          grep -q "org.jetbrains.kotlin.android" SOFA_SYMBIOSIS_1/build.gradle
+          grep -q "org.jetbrains.kotlin.android" SOFA_SYMBIOSIS_1/app/build.gradle
 
-      - name: Enable Kotlin Android compilation
+      - name: Run unit tests and build APK
         working-directory: SOFA_SYMBIOSIS_1
         run: |
-          sed -i "/id 'com.android.application' version/a\\    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false" build.gradle
-          sed -i "s/plugins { id 'com.android.application' }/plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }/" app/build.gradle
-          cat >> app/build.gradle <<'EOF'
-
-          android {
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-          }
-          EOF
-
-      - name: Build APK
-        working-directory: SOFA_SYMBIOSIS_1
-        run: |
-          gradle --no-daemon clean assembleDebug
+          gradle --no-daemon clean testDebugUnitTest assembleDebug
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          unzip -p "$APK" classes.dex > /tmp/sofa-classes.dex
-          test -s /tmp/sofa-classes.dex
-          echo "APK and compiled DEX verified"
+          unzip -t "$APK"
+          DEX_COUNT=$(unzip -Z1 "$APK" | grep -Ec '^classes([0-9]+)?\.dex$')
+          test "$DEX_COUNT" -ge 1
+          echo "APK verified: $DEX_COUNT DEX file(s)"
+
+      - name: Verify APK signature
+        working-directory: SOFA_SYMBIOSIS_1
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SOFA-SYMBIOSIS-1-APK
-          path: SOFA_SYMBIOSIS_1/app/build/outputs/apk/debug/*.apk
+          path: SOFA_SYMBIOSIS_1/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
 
-      - name: Upload extracted source for verification
+      - name: Package clean source
+        run: |
+          cd SOFA_SYMBIOSIS_1
+          zip -qr ../SOFA-SYMBIOSIS-1-SOURCE.zip . -x '*/build/*' '*/.gradle/*' '*.iml'
+
+      - name: Upload clean source
         uses: actions/upload-artifact@v4
         with:
           name: SOFA-SYMBIOSIS-1-SOURCE
-          path: SOFA_SYMBIOSIS_1/
+          path: SOFA-SYMBIOSIS-1-SOURCE.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
