@@ -23,6 +23,19 @@ class LocalGatewayTest {
         val gate = CapabilityGate(setOf(GatewayCapability.WRITE_LOCAL_NOTE))
         val gateway = LocalGateway(gate)
         assertEquals(GatewayResult.Denied("core-1", "Capability not granted"),
-            gateway.authorize(GatewayRequest("core-1", GatewayOperation.APPLY_CORE_UPDATE)))
+            gateway.authorize(GatewayRequest("core-1", GatewayOperation.APPLY_CORE_UPDATE, "sha256:core")))
+    }
+
+    @Test fun coreUpdateRequiresDigestAndFreshOwnerApproval() {
+        val gate = CapabilityGate(setOf(GatewayCapability.MODIFY_CORE))
+        val approvals = CoreChangeApprovalGate(nowMillis = { 10_000L })
+        val gateway = LocalGateway(gate, approvals)
+        assertEquals(GatewayResult.Invalid("changeDigest is required for core updates"),
+            gateway.authorize(GatewayRequest("core-2", GatewayOperation.APPLY_CORE_UPDATE)))
+        val request = GatewayRequest("core-2", GatewayOperation.APPLY_CORE_UPDATE, "sha256:proposal")
+        assertEquals(GatewayResult.Denied("core-2", "Fresh owner approval required"), gateway.authorize(request))
+        assertEquals(true, approvals.approve("core-2", "sha256:proposal"))
+        assertEquals(GatewayResult.Allowed("core-2"), gateway.authorize(request))
+        assertEquals(GatewayResult.Denied("core-2", "Fresh owner approval required"), gateway.authorize(request))
     }
 }
