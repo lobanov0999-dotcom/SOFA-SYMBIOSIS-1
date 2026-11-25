@@ -2,7 +2,7 @@ name: SOFA SYMBIOSIS 1 - Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, work/sofa-foundation-2026-11-25]
   workflow_dispatch:
 
 permissions:
@@ -32,6 +32,24 @@ jobs:
           unzip -q SOFA_SYMBIOSIS_1_source.zip -d .
           test -f SOFA_SYMBIOSIS_1/settings.gradle
           test -f SOFA_SYMBIOSIS_1/app/build.gradle
+
+      - name: Apply maintained gateway source overlay
+        run: |
+          APP="SOFA_SYMBIOSIS_1/app"
+          PKG="$APP/src/main/java/com/sofa/symbiosis/gateway"
+          TEST="$APP/src/test/java/com/sofa/symbiosis/gateway"
+          mkdir -p "$PKG" "$TEST"
+          cp engineering/android/CapabilityGate.kt "$PKG/CapabilityGate.kt"
+          cp engineering/android/CapabilityGateTest.kt "$TEST/CapabilityGateTest.kt"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("SOFA_SYMBIOSIS_1/app/build.gradle")
+          text = p.read_text()
+          dep = "    testImplementation 'junit:junit:4.13.2'"
+          if dep not in text:
+              text += "\n\ndependencies {\n" + dep + "\n}\n"
+              p.write_text(text)
+          PY
 
       - name: Normalize Kotlin and Java build settings
         working-directory: SOFA_SYMBIOSIS_1
@@ -77,6 +95,16 @@ jobs:
         working-directory: SOFA_SYMBIOSIS_1
         run: |
           gradle --no-daemon clean testDebugUnitTest assembleDebug
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports = list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"))
+          executed = sum(int(ET.parse(p).getroot().attrib.get("tests", "0")) for p in reports)
+          failures = sum(int(ET.parse(p).getroot().attrib.get("failures", "0")) + int(ET.parse(p).getroot().attrib.get("errors", "0")) for p in reports)
+          print(f"Unit tests executed: {executed}; failures/errors: {failures}")
+          if executed < 3 or failures:
+              raise SystemExit("Expected at least 3 passing gateway unit tests")
+          PY
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           unzip -t "$APK"
