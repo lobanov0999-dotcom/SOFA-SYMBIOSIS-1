@@ -110,8 +110,8 @@ jobs:
           executed = sum(int(ET.parse(p).getroot().attrib.get("tests", "0")) for p in reports)
           failures = sum(int(ET.parse(p).getroot().attrib.get("failures", "0")) + int(ET.parse(p).getroot().attrib.get("errors", "0")) for p in reports)
           print(f"Unit tests executed: {executed}; failures/errors: {failures}")
-          if executed < 10 or failures:
-              raise SystemExit("Expected at least 10 passing gateway unit tests")
+          if executed < 11 or failures:
+              raise SystemExit("Expected all 11 gateway unit tests to pass")
           PY
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
