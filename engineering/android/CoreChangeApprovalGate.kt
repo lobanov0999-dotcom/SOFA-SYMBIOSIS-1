@@ -18,7 +18,10 @@ class CoreChangeApprovalGate(
     fun approve(requestId: String, changeDigest: String, ttlMillis: Long = 60_000L): Boolean {
         if (requestId.isBlank() || changeDigest.isBlank()) return false
         if (ttlMillis <= 0 || ttlMillis > maxTtlMillis) return false
-        approvals[requestId] = Approval(changeDigest, nowMillis() + ttlMillis)
+        val now = nowMillis()
+        purgeExpired(now)
+        if (requestId !in approvals && approvals.size >= MAX_PENDING_APPROVALS) return false
+        approvals[requestId] = Approval(changeDigest, now + ttlMillis)
         return true
     }
 
@@ -30,6 +33,11 @@ class CoreChangeApprovalGate(
         return approval.digest == changeDigest && nowMillis() < approval.expiresAt
     }
 
+    private fun purgeExpired(now: Long) {
+        val expiredIds = approvals.filterValues { now >= it.expiresAt }.keys
+        expiredIds.forEach(approvals::remove)
+    }
+
     @Synchronized
     fun revoke(requestId: String) {
         approvals.remove(requestId)
@@ -38,5 +46,9 @@ class CoreChangeApprovalGate(
     @Synchronized
     fun revokeAll() {
         approvals.clear()
+    }
+
+    companion object {
+        const val MAX_PENDING_APPROVALS = 256
     }
 }
