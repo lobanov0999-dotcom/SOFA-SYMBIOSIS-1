@@ -43,8 +43,8 @@ jobs:
           root = Path("build.gradle")
           text = root.read_text()
           if "org.jetbrains.kotlin.android" not in text:
-              pattern = r"(id\\s+['\\"]com\\.android\\.application['\\"]\\s+version\\s+['\\"][^'\\"]+['\\"]\\s+apply\\s+false)"
-              text, count = re.subn(pattern, r"\\1\\n    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false", text, count=1)
+              pattern = r"(id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]\s+apply\s+false)"
+              text, count = re.subn(pattern, r"\1\n    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false", text, count=1)
               if count != 1:
                   raise SystemExit("Could not safely add Kotlin plugin to root build.gradle")
               root.write_text(text)
@@ -52,11 +52,11 @@ jobs:
           app = Path("app/build.gradle")
           text = app.read_text()
           if "org.jetbrains.kotlin.android" not in text:
-              match = re.search(r"plugins\\s*\\{([^}]*)\\}", text, re.S)
+              match = re.search(r"plugins\s*\{([^}]*)\}", text, re.S)
               if not match:
                   raise SystemExit("Could not find app plugins block")
               body = match.group(1).rstrip()
-              text = text[:match.start(1)] + body + "\\n    id 'org.jetbrains.kotlin.android'" + text[match.end(1):]
+              text = text[:match.start(1)] + body + "\n    id 'org.jetbrains.kotlin.android'" + text[match.end(1):]
           if "sourceCompatibility JavaVersion.VERSION_17" not in text:
               text += """
           
@@ -80,7 +80,7 @@ jobs:
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           unzip -t "$APK"
-          DEX_COUNT=$(unzip -Z1 "$APK" | grep -Ec '^classes([0-9]+)?\\.dex$')
+          DEX_COUNT=$(unzip -Z1 "$APK" | grep -Ec '^classes([0-9]+)?\.dex$')
           test "$DEX_COUNT" -ge 1
           echo "APK verified: $DEX_COUNT DEX file(s)"
 
