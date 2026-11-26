@@ -37,4 +37,16 @@ class CoreChangeApprovalGateTest {
         approvals.revoke("req-3")
         assertFalse(approvals.consume("req-3", "sha256:ghi"))
     }
+
+    
+    @Test fun pendingApprovalsAreBoundedAndExpiredEntriesAreReclaimed() {
+        var now = 1_000L
+        val approvals = CoreChangeApprovalGate(nowMillis = { now })
+        repeat(CoreChangeApprovalGate.MAX_PENDING_APPROVALS) { index ->
+            assertTrue(approvals.approve("req-$index", "sha256:$index", 100L))
+        }
+        assertFalse(approvals.approve("overflow", "sha256:overflow", 100L))
+        now += 100L
+        assertTrue(approvals.approve("after-expiry", "sha256:new", 100L))
+    }
 }
