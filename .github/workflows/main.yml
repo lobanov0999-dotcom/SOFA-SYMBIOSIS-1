@@ -33,6 +33,34 @@ jobs:
           test -f SOFA_SYMBIOSIS_1/settings.gradle
           test -f SOFA_SYMBIOSIS_1/app/build.gradle
 
+      - name: Apply maintained gateway source overlay
+        run: |
+          APP="SOFA_SYMBIOSIS_1/app"
+          PKG="$APP/src/main/java/com/sofa/symbiosis/gateway"
+          APP_PKG="$APP/src/main/java/com/sofa/symbiosis"
+          mkdir -p "$APP_PKG" "$PKG"
+          cp engineering/android/JournalRepository.kt "$APP_PKG/JournalRepository.kt"
+          cp engineering/android/MainActivity.kt "$APP_PKG/MainActivity.kt"
+          cp engineering/android/CapabilityGate.kt "$PKG/CapabilityGate.kt"
+          cp engineering/android/LocalGateway.kt "$PKG/LocalGateway.kt"
+          cp engineering/android/LocalGatewayExecutor.kt "$PKG/LocalGatewayExecutor.kt"
+          cp engineering/android/CoreChangeApprovalGate.kt "$PKG/CoreChangeApprovalGate.kt"
+          TEST="$APP/src/test/java/com/sofa/symbiosis/gateway"
+          mkdir -p "$TEST"
+          cp engineering/android/CapabilityGateTest.kt "$TEST/CapabilityGateTest.kt"
+          cp engineering/android/LocalGatewayTest.kt "$TEST/LocalGatewayTest.kt"
+          cp engineering/android/LocalGatewayExecutorTest.kt "$TEST/LocalGatewayExecutorTest.kt"
+          cp engineering/android/CoreChangeApprovalGateTest.kt "$TEST/CoreChangeApprovalGateTest.kt"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("SOFA_SYMBIOSIS_1/app/build.gradle")
+          text = p.read_text()
+          dep = "testImplementation 'junit:junit:4.13.2'"
+          if dep not in text:
+              text += "\n\ndependencies {\n    " + dep + "\n}\n"
+              p.write_text(text)
+          PY
+
       - name: Normalize Kotlin and Java build settings
         working-directory: SOFA_SYMBIOSIS_1
         run: |
@@ -77,6 +105,16 @@ jobs:
         working-directory: SOFA_SYMBIOSIS_1
         run: |
           gradle --no-daemon clean testDebugUnitTest assembleDebug
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports = list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"))
+          executed = sum(int(ET.parse(p).getroot().attrib.get("tests", "0")) for p in reports)
+          failures = sum(int(ET.parse(p).getroot().attrib.get("failures", "0")) + int(ET.parse(p).getroot().attrib.get("errors", "0")) for p in reports)
+          print(f"Unit tests executed: {executed}; failures/errors: {failures}")
+          if executed < 18 or failures:
+              raise SystemExit("Expected all 18 gateway unit tests to pass")
+          PY
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           unzip -t "$APK"
@@ -102,11 +140,11 @@ jobs:
       - name: Package clean source
         run: |
           cd SOFA_SYMBIOSIS_1
-          zip -qr ../SOFA-SYMBIOSIS-1-SOURCE.zip . \
-            -x '*.zip' '.gradle/*' '*/.gradle/*' '.kotlin/*' '*/.kotlin/*' \
-               'build/*' '*/build/*' '*.iml'
+          find . -type d \( -name build -o -name .gradle -o -name .kotlin \) -prune -o -type f ! -name '*.iml' -print \
+            | sed 's#^\./##' | zip -q ../SOFA-SYMBIOSIS-1-SOURCE.zip -@
           unzip -Z1 ../SOFA-SYMBIOSIS-1-SOURCE.zip | grep -q '^settings.gradle$'
-          unzip -Z1 ../SOFA-SYMBIOSIS-1-SOURCE.zip | grep -q '^app/src/main/AndroidManifest.xml$'
+          unzip -Z1 ../SOFA-SYMBIOSIS-1-SOURCE.zip | grep -q '^app/src/main/java/com/sofa/symbiosis/gateway/LocalGateway.kt$'
+          unzip -Z1 ../SOFA-SYMBIOSIS-1-SOURCE.zip | grep -q '^app/src/test/java/com/sofa/symbiosis/gateway/LocalGatewayTest.kt$'
 
       - name: Upload clean source
         uses: actions/upload-artifact@v4
